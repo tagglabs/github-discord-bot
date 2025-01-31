@@ -202,12 +202,7 @@ async def get_repo(interaction: discord.Interaction, keyword: str):
         # Limit to top 25 results due to Discord's select menu options limit
         options = [
             discord.SelectOption(
-                label=repo["name"],
-                description=(
-                    repo["description"][:100]
-                    if repo["description"]
-                    else "No description available"
-                ),
+                label=repo["name"], description=repo["description"][:100]
             )
             for repo in repos[:25]
         ]
@@ -247,8 +242,8 @@ async def on_ready():
     # cleared = bot.tree.clear_commands(guild=GUILD_ID)bun
     # print(f"🗑️ Cleared {cleared} commands for Guild ID {GUILD_ID.id}.")
     # # Sync commands globally and for the specified guild
-    global_sync = await bot.tree.sync()
-    print(f"🔄 Synced {len(global_sync)} global commands.")
+    # # global_sync = await bot.tree.sync()
+    # # print(f"🔄 Synced {len(global_sync)} global commands.")
 
     # bot.tree.copy_global_to(guild=GUILD_ID)
     # guild_sync = await bot.tree.sync(guild=GUILD_ID)
