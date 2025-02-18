@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import requests
 
+
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -19,8 +20,15 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # GitHub API request function
 async def github_api_request(endpoint: str, method: str = "GET", data: dict = None):
     url = f"https://api.github.com{endpoint}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+    }
     response = requests.request(method, url, headers=headers, json=data)
+    if response.status_code == 403:
+        raise PermissionError(
+            "Access forbidden: Check your token permissions and repository access."
+        )
     response.raise_for_status()
     if response.headers.get("content-type") == "application/json; charset=utf-8":
         return response.json()
@@ -46,39 +54,33 @@ class CreateRepoModal(discord.ui.Modal, title="Create New Repository"):
         required=False,
         max_length=7,
     )
-    initialize_readme = discord.ui.TextInput(
-        label="Initialize with README (yes/no)",
-        placeholder="yes or no",
-        required=False,
-        max_length=3,
-    )
 
     async def on_submit(self, interaction: discord.Interaction):
         repo_name = self.repo_name.value
         description = self.description.value or ""
         visibility = self.visibility.value.lower() or "public"
-        initialize_readme = self.initialize_readme.value.lower() == "yes"
+        is_private = visibility == "private"
 
         data = {
+            "owner": github_org,
             "name": repo_name,
             "description": description,
-            "private": visibility == "private",
-            "has_projects": True,
-            "auto_init": initialize_readme,
-            "gitignore_template": "Python",
-            "license_template": "mit",
+            "private": is_private,
         }
+
         try:
             repo = await github_api_request(
-                f"/orgs/{github_org}/repos", method="POST", data=data
+                "/repos/tagglabs/precommit-config/generate",
+                method="POST",
+                data=data,
             )
+
             team_repo_data = {"permission": "maintain"}
             await github_api_request(
                 f"/orgs/{github_org}/teams/campaigns/repos/{github_org}/{repo_name}",
                 method="PUT",
                 data=team_repo_data,
             )
-
             await interaction.response.send_message(
                 f"Repository '{repo_name}' created successfully: {repo['html_url']}"
             )
@@ -202,7 +204,7 @@ async def get_repo(interaction: discord.Interaction, keyword: str):
         # Limit to top 25 results due to Discord's select menu options limit
         options = [
             discord.SelectOption(
-                label=repo["name"], description=repo["description"][:100]
+                label=repo["name"], description=(repo["description"] or "")[:100]
             )
             for repo in repos[:25]
         ]
